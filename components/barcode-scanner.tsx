@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Camera, X, Flashlight, RotateCcw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/components/auth-provider"
 import { BrowserMultiFormatReader } from "@zxing/browser"
 
 interface BarcodeScannerProps {
@@ -19,6 +20,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   useEffect(() => {
     startCamera()
@@ -115,7 +117,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: "demo@example.com", // later replace with real user
+          email: user?.email, // later replace with real user
           productName: data.productName,
           carbonEstimate: data.carbonEstimate,
         }),

@@ -45,7 +45,7 @@ export default function Dashboard() {
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">{user.monthlyCarbon.toFixed(1)} kg</div>
+              {/* <div className="text-2xl font-bold text-white">{user.monthlyCarbon.toFixed(1)} kg</div> */}
               <p className="text-xs text-gray-500">{progressPercentage < 100 ? "Below" : "Above"} monthly goal</p>
             </CardContent>
           </Card>
@@ -96,9 +96,9 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Progress</span>
-                <span>
+                {/* <span>
                   {user.monthlyCarbon.toFixed(1)}kg / {monthlyGoal}kg
-                </span>
+                </span> */}
               </div>
               <Progress value={Math.min(progressPercentage, 100)} className="h-2" />
               <div className="flex justify-between text-xs text-muted-foreground">

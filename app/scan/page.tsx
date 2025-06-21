@@ -13,53 +13,14 @@ import { Scan, Search, Leaf, AlertTriangle, CheckCircle, Camera } from "lucide-r
 import { useToast } from "@/hooks/use-toast"
 import BarcodeScanner from "@/components/barcode-scanner"
 
-// Mock product database
-const mockProducts = {
-  "123456789012": {
-    name: "Organic Bananas",
-    brand: "Fresh & Green",
-    category: "Fruits",
-    carbonFootprint: 0.7,
-    sustainabilityScore: "A",
-    description: "Organic bananas from sustainable farms",
-    image: "/placeholder.svg?height=200&width=200",
-    certifications: ["Organic", "Fair Trade"],
-    packaging: "Minimal plastic",
-    transportDistance: "1,200 km",
-  },
-  "987654321098": {
-    name: "Beef Burger Patties",
-    brand: "MeatCo",
-    category: "Meat",
-    carbonFootprint: 15.2,
-    sustainabilityScore: "D",
-    description: "Frozen beef burger patties",
-    image: "/placeholder.svg?height=200&width=200",
-    certifications: [],
-    packaging: "Plastic tray with film",
-    transportDistance: "800 km",
-  },
-  "456789123456": {
-    name: "Almond Milk",
-    brand: "Plant Pure",
-    category: "Dairy Alternative",
-    carbonFootprint: 1.1,
-    sustainabilityScore: "B+",
-    description: "Unsweetened almond milk",
-    image: "/placeholder.svg?height=200&width=200",
-    certifications: ["Organic"],
-    packaging: "Recyclable carton",
-    transportDistance: "600 km",
-  },
-}
-
 export default function ScanPage() {
   const [barcode, setBarcode] = useState("")
   const [product, setProduct] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
+  const [scanLock, setScanLock] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
-  const { updateUserStats } = useAuth()
+  const { updateUserStats, user } = useAuth()
   const { toast } = useToast()
 
   const startCamera = async () => {
@@ -87,39 +48,82 @@ export default function ScanPage() {
   }
 
   const handleScan = async () => {
-    if (!barcode.trim()) {
-      toast({
-        title: "Please enter a barcode",
-        description: "Enter a valid barcode to scan the product.",
-        variant: "destructive",
-      })
-      return
-    }
 
-    setIsLoading(true)
+    if (scanLock) return // prevent re-entry
+    setScanLock(true)
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const foundProduct = mockProducts[barcode as keyof typeof mockProducts]
-
-      if (foundProduct) {
-        setProduct(foundProduct)
-        updateUserStats(foundProduct.carbonFootprint)
-        toast({
-          title: "Product found!",
-          description: `Added ${foundProduct.carbonFootprint}kg CO₂ to your tracking.`,
-        })
-      } else {
-        toast({
-          title: "Product not found",
-          description: "This barcode is not in our database yet.",
-          variant: "destructive",
-        })
-        setProduct(null)
-      }
-      setIsLoading(false)
-    }, 1000)
+  if (!barcode.trim()) {
+    toast({
+      title: "Please enter a barcode",
+      description: "Enter a valid barcode to scan the product.",
+      variant: "destructive",
+    });
+    setScanLock(false)
+    return;
   }
+
+  setIsLoading(true);
+
+  try {
+    const res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ barcode }),
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      toast({
+        title: "Product not found",
+        description: "This barcode is not in our database yet.",
+        variant: "destructive",
+      });
+      setProduct(null);
+    } else {
+      setProduct({
+        name: data.productName,
+        brand: data.brand || "Unknown",
+        category: "Unknown",
+        carbonFootprint: parseFloat(data.carbonEstimate),
+        sustainabilityScore: "B", // mock or infer later
+        description: "Data fetched from OpenFoodFacts",
+        image: "/placeholder.svg",
+        certifications: [],
+        packaging: "Unknown",
+        transportDistance: "Unknown",
+      });
+
+      // Call /api/user/score to update carbon total
+      await fetch("/api/user/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user?.email, // Replace with real user from auth
+          productName: data.productName,
+          carbonEstimate: data.carbonEstimate,
+        }),
+      });
+
+      toast({
+        title: "Product found!",
+        description: `Carbon impact: ${data.carbonEstimate}kg CO₂`,
+      });
+
+      // Optional: call updateUserStats if needed
+      // updateUserStats(parseFloat(data.carbonEstimate));
+    }
+  } catch (err) {
+    toast({
+      title: "API error",
+      description: "Something went wrong while scanning.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+    setScanLock(false)
+  }
+};
 
   const getSustainabilityColor = (score: string) => {
     switch (score) {
@@ -174,7 +178,9 @@ export default function ScanPage() {
                   placeholder="Enter barcode (try: 123456789012, 987654321098, 456789123456)"
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleScan()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !scanLock) handleScan()
+                  }}
                 />
                 <Button onClick={() => setIsScanning(true)} variant="outline">
                   <Camera className="h-4 w-4" />
@@ -289,9 +295,11 @@ export default function ScanPage() {
         {isScanning && (
           <BarcodeScanner
             onScan={(scannedBarcode) => {
-              setBarcode(scannedBarcode)
-              setIsScanning(false)
-              handleScan()
+              if (!scanLock) {
+                setBarcode(scannedBarcode)
+                setIsScanning(false)
+                handleScan()
+              }
             }}
             onClose={() => setIsScanning(false)}
           />
