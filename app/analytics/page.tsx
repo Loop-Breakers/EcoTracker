@@ -8,21 +8,21 @@ import { BarChart3, TrendingDown, Leaf, Target, Calendar, Award } from "lucide-r
 
 // Mock analytics data
 const monthlyData = [
-  { month: "Jan", carbon: 52.1, scanned: 89, goal: 50 },
-  { month: "Feb", carbon: 48.7, scanned: 95, goal: 50 },
-  { month: "Mar", carbon: 45.2, scanned: 127, goal: 50 },
-  { month: "Apr", carbon: 42.8, scanned: 143, goal: 45 },
-  { month: "May", carbon: 39.5, scanned: 156, goal: 45 },
-  { month: "Jun", carbon: 37.2, scanned: 168, goal: 40 },
+  { month: "Jan", carbon: 0, scanned: 0, goal: 0 },
+  { month: "Feb", carbon: 0, scanned: 0, goal: 0 },
+  { month: "Mar", carbon: 0, scanned: 0, goal: 0 },
+  { month: "Apr", carbon: 0, scanned: 0, goal: 0 },
+  { month: "May", carbon: 0, scanned: 0, goal: 0 },
+  { month: "Jun", carbon: 4.09, scanned: 2, goal: 10 },
 ]
 
 const categoryBreakdown = [
-  { category: "Meat & Fish", carbon: 18.5, percentage: 41, color: "bg-red-500" },
-  { category: "Dairy", carbon: 8.2, percentage: 18, color: "bg-orange-500" },
-  { category: "Fruits & Vegetables", carbon: 6.1, percentage: 14, color: "bg-green-500" },
-  { category: "Grains & Cereals", carbon: 5.4, percentage: 12, color: "bg-yellow-500" },
-  { category: "Beverages", carbon: 4.2, percentage: 9, color: "bg-blue-500" },
-  { category: "Other", carbon: 2.8, percentage: 6, color: "bg-purple-500" },
+  // { category: "Meat & Fish", carbon: 18.5, percentage: 41, color: "bg-red-500" },
+  // { category: "Dairy", carbon: 8.2, percentage: 18, color: "bg-orange-500" },
+  // { category: "Fruits & Vegetables", carbon: 6.1, percentage: 14, color: "bg-green-500" },
+  // { category: "Grains & Cereals", carbon: 5.4, percentage: 12, color: "bg-yellow-500" },
+  { category: "Chocolate", carbon: 2.09, percentage: 20, color: "bg-blue-500" },
+  { category: "Cold Drinks", carbon: 2.0, percentage: 15, color: "bg-purple-500" },
 ]
 
 const sustainabilityTips = [
@@ -57,10 +57,10 @@ const sustainabilityTips = [
 ]
 
 const weeklyProgress = [
-  { week: "Week 1", carbon: 11.2, target: 12.5 },
-  { week: "Week 2", carbon: 9.8, target: 12.5 },
-  { week: "Week 3", carbon: 10.5, target: 12.5 },
-  { week: "Week 4", carbon: 8.9, target: 12.5 },
+  { week: "Week 1", carbon: 0, target: 0 },
+  { week: "Week 2", carbon: 0, target: 0 },
+  { week: "Week 3", carbon: 0, target: 0 },
+  { week: "Week 4", carbon: 4.09, target: 10 },
 ]
 
 export default function AnalyticsPage() {

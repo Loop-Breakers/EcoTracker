@@ -64,96 +64,77 @@ export default function ScanPage() {
     setIsScanning(false)
   }
 
-  const handleScan = async () => {
+  const handleScan = async (scanned?: string) => {
+  if (scanLock) return;
+  setScanLock(true);
 
-    if (scanLock) return // prevent re-entry
-    setScanLock(true)
+  const actualBarcode = (scanned || barcode).trim();
 
-  if (!barcode.trim()) {
+  if (!actualBarcode) {
     toast({
       title: "Please enter a barcode",
       description: "Enter a valid barcode to scan the product.",
       variant: "destructive",
     });
-    setScanLock(false)
+    setScanLock(false);
     return;
   }
 
   setIsLoading(true);
 
   try {
+    // Step 1: Try hitting /api/scan
     const res = await fetch("/api/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ barcode }),
+      body: JSON.stringify({ barcode: actualBarcode }),
     });
 
     const data = await res.json();
 
-    if (data.error) {
-
-  const { updateUserStats } = useAuth()
-  const { toast } = useToast()
-
-  const handleScan = async (scanned?: string) => {
-    const actualBarcode = (scanned || barcode).trim()
-    if (!actualBarcode) {
-
-      toast({
-        title: "Product not found",
-        description: "This barcode is not in our database yet.",
-        variant: "destructive",
-      });
-      setProduct(null);
-    } else {
-      setProduct({
-        name: data.productName,
-        brand: data.brand || "Unknown",
-        category: "Unknown",
-        carbonFootprint: parseFloat(data.carbonEstimate),
-        sustainabilityScore: "B", // mock or infer later
-        description: "Data fetched from OpenFoodFacts",
-        image: "/placeholder.svg",
-        certifications: [],
-        packaging: "Unknown",
-        transportDistance: "Unknown",
-      });
-
-      // Call /api/user/score to update carbon total
-      await fetch("/api/user/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: user?.email, // Replace with real user from auth
-          productName: data.productName,
-          carbonEstimate: data.carbonEstimate,
-        }),
-      });
-
-      toast({
-        title: "Product found!",
-        description: `Carbon impact: ${data.carbonEstimate}kg CO₂`,
-      });
-
-      // Optional: call updateUserStats if needed
-      // updateUserStats(parseFloat(data.carbonEstimate));
+    if (!res.ok || data.error || !data.productName) {
+      throw new Error("Product not found in API");
     }
-  } catch (err) {
-    toast({
-      title: "API error",
-      description: "Something went wrong while scanning.",
-      variant: "destructive",
+
+    // Step 2: If API worked, use API result
+    setProduct({
+      barcode: actualBarcode,
+      product: data.productName,
+      brand: data.brand || "Unknown",
+      category: data.category || "Unknown",
+      co2_emission: parseFloat(data.carbonEstimate),
+      sustainabilityScore: "B",
+      description: "Data fetched from OpenFoodFacts",
+      image: "/placeholder.svg",
+      certifications: [],
+      packaging: "Unknown",
+      transportDistance: "Unknown",
     });
-  } finally {
-    setIsLoading(false);
-    setScanLock(false)
+
+    await fetch("/api/user/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: user?.email,
+        productName: data.productName,
+        carbonEstimate: data.carbonEstimate,
+      }),
+    });
+
+    toast({
+      title: "Product found!",
+      description: `Carbon impact: ${data.carbonEstimate}kg CO₂`,
+    });
+
+    updateUserStats?.(parseFloat(data.carbonEstimate));
+  } catch (err) {
+    console.warn("API failed, trying fallback JSON...");
 
     try {
-      const res = await fetch("/barcode-data.json")
-      if (!res.ok) throw new Error("Failed to load barcode-data.json")
-
-      const data: ProductData[] = await res.json()
-      const matched = data.find((item) => item.barcode === actualBarcode)
+      // Step 3: Fallback to local barcode-data.json
+      const res = await fetch("/barcode-data.json");
+      const data: ProductData[] = await res.json();
+      const matched = data.find((item) => item.barcode === actualBarcode);
 
       if (matched) {
         setProduct({
@@ -166,35 +147,33 @@ export default function ScanPage() {
           packaging: matched.packaging || "N/A",
           certifications: matched.certifications || [],
           description: matched.description || "No description available.",
-        })
+        });
 
-        updateUserStats(matched.co2_emission)
+        updateUserStats?.(matched.co2_emission);
 
         toast({
           title: matched.product,
           description: `CO₂ Emission: ${matched.co2_emission} kg added to your tracking.`,
-        })
+        });
       } else {
-        setProduct(null)
-        toast({
-          title: "Product not found",
-          description: `Scanned barcode: ${actualBarcode}`,
-          variant: "destructive",
-        })
+        throw new Error("Barcode not found in fallback JSON");
       }
     } catch (err) {
-      console.error("Scan error:", err)
+      console.error("Fallback failed:", err);
       toast({
         title: "Error",
-        description: "Could not load product data.",
+        description: "Could not find product in API or local data.",
         variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+      });
 
+      setProduct(null);
+    }
+  } finally {
+    setIsLoading(false);
+    setScanLock(false);
   }
 };
+
 
   const getSustainabilityColor = (score: string) => {
     switch (score) {
@@ -380,5 +359,5 @@ export default function ScanPage() {
       </div>
     </DashboardLayout>
   )
-}
+  }
 
