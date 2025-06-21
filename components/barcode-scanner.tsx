@@ -17,20 +17,17 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const [isFlashOn, setIsFlashOn] = useState(false)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const { toast } = useToast()
 
   useEffect(() => {
     startCamera()
-    return () => {
-      stopCamera()
-    }
+    return () => stopCamera()
   }, [facingMode])
 
   useEffect(() => {
     const interval = setInterval(() => {
       simulateScan()
-    }, 3000) // every 3 seconds
+    }, 3000)
 
     return () => clearInterval(interval)
   }, [stream])
@@ -71,7 +68,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const toggleFlash = async () => {
     if (stream) {
       const track = stream.getVideoTracks()[0]
-      const capabilities = track.getCapabilities() as any;
+      const capabilities = track.getCapabilities() as any
 
       if (capabilities.torch) {
         try {
@@ -94,47 +91,6 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     setFacingMode(facingMode === "user" ? "environment" : "user")
   }
 
-  // INSIDE barcode-scanner.tsx
-
-  const handleScan = async (barcode: string) => {
-    try {
-      const scanRes = await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ barcode }),
-      });
-
-      const data = await scanRes.json();
-      if (data.error) {
-        toast({ title: "Product not found", variant: "destructive" });
-        return;
-      }
-
-      // Send to user score API
-      const userScoreRes = await fetch("/api/user/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "demo@example.com", // later replace with real user
-          productName: data.productName,
-          carbonEstimate: data.carbonEstimate,
-        }),
-      });
-
-      const scoreData = await userScoreRes.json();
-      toast({
-        title: `Carbon Estimate: ${data.carbonEstimate} kg`,
-        description: `Your total score: ${scoreData.newScore} kg`,
-      });
-    } catch (err) {
-      toast({
-        title: "API Error",
-        description: "Something went wrong while fetching data.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const codeReader = new BrowserMultiFormatReader()
 
   const simulateScan = async () => {
@@ -144,7 +100,6 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         if (result && result.getText()) {
           const barcode = result.getText()
           onScan(barcode)
-          handleScan(barcode)
           toast({
             title: "Barcode detected!",
             description: `Scanned barcode: ${barcode}`,
@@ -152,11 +107,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         }
       } catch (error) {
         if ((error as any)?.name === "NotFoundException") {
-          toast({
-            title: "No barcode found",
-            description: "Try again with clearer barcode position.",
-            variant: "destructive",
-          })
+          // No barcode found – don't toast every time to avoid spam
         } else {
           toast({
             title: "Scanning failed",
@@ -169,13 +120,12 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   }
 
   const enterBarcodeManually = () => {
-    const barcode = prompt("Enter barcode manually:")
-    if (barcode) {
-      onScan(barcode)
-      handleScan(barcode)
+    const input = prompt("Enter barcode manually:")
+    if (input) {
+      onScan(input)
       toast({
         title: "Manual barcode entered",
-        description: `Scanned barcode: ${barcode}`,
+        description: `Scanned barcode: ${input}`,
       })
     }
   }
@@ -197,25 +147,19 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         <CardContent className="space-y-4">
           <div className="relative">
             <video ref={videoRef} className="w-full h-64 bg-black rounded-lg object-cover" autoPlay playsInline muted />
-            {/* <canvas ref={canvasRef} className="hidden" /> */}
 
-            {/* Scanning overlay */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="relative w-48 h-24 border-2 border-green-400 rounded-lg">
-                {/* Corner indicators */}
                 <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-green-400 rounded-tl-lg"></div>
                 <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-green-400 rounded-tr-lg"></div>
                 <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-green-400 rounded-bl-lg"></div>
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-green-400 rounded-br-lg"></div>
-
-                {/* Scanning line animation */}
                 <div className="absolute inset-0 overflow-hidden rounded-lg">
                   <div className="absolute w-full h-0.5 bg-green-400 animate-pulse"></div>
                 </div>
               </div>
             </div>
 
-            {/* Camera controls */}
             <div className="absolute top-2 right-2 flex gap-2">
               <Button
                 variant="secondary"
@@ -255,3 +199,4 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     </div>
   )
 }
+
