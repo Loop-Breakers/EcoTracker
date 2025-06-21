@@ -13,6 +13,7 @@ import { Scan, Search, Leaf, AlertTriangle, CheckCircle, Camera } from "lucide-r
 import { useToast } from "@/hooks/use-toast"
 import BarcodeScanner from "@/components/barcode-scanner"
 
+
 interface ProductData {
   barcode: string
   product: string
@@ -27,26 +28,125 @@ interface ProductData {
   certifications?: string[]
 }
 
+
 export default function ScanPage() {
   const [barcode, setBarcode] = useState("")
   const [product, setProduct] = useState<ProductData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
+
+  const [scanLock, setScanLock] = useState(false)
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const { updateUserStats, user } = useAuth()
+  const { toast } = useToast()
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }, // Use back camera if available
+      })
+      setStream(mediaStream)
+      setIsScanning(true)
+    } catch (error) {
+      toast({
+        title: "Camera access denied",
+        description: "Please allow camera access to scan barcodes.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop())
+      setStream(null)
+    }
+    setIsScanning(false)
+  }
+
+  const handleScan = async () => {
+
+    if (scanLock) return // prevent re-entry
+    setScanLock(true)
+
+  if (!barcode.trim()) {
+    toast({
+      title: "Please enter a barcode",
+      description: "Enter a valid barcode to scan the product.",
+      variant: "destructive",
+    });
+    setScanLock(false)
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ barcode }),
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+
   const { updateUserStats } = useAuth()
   const { toast } = useToast()
 
   const handleScan = async (scanned?: string) => {
     const actualBarcode = (scanned || barcode).trim()
     if (!actualBarcode) {
-      toast({
-        title: "Please enter a barcode",
-        description: "Enter a valid barcode to scan the product.",
-        variant: "destructive",
-      })
-      return
-    }
 
-    setIsLoading(true)
+      toast({
+        title: "Product not found",
+        description: "This barcode is not in our database yet.",
+        variant: "destructive",
+      });
+      setProduct(null);
+    } else {
+      setProduct({
+        name: data.productName,
+        brand: data.brand || "Unknown",
+        category: "Unknown",
+        carbonFootprint: parseFloat(data.carbonEstimate),
+        sustainabilityScore: "B", // mock or infer later
+        description: "Data fetched from OpenFoodFacts",
+        image: "/placeholder.svg",
+        certifications: [],
+        packaging: "Unknown",
+        transportDistance: "Unknown",
+      });
+
+      // Call /api/user/score to update carbon total
+      await fetch("/api/user/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user?.email, // Replace with real user from auth
+          productName: data.productName,
+          carbonEstimate: data.carbonEstimate,
+        }),
+      });
+
+      toast({
+        title: "Product found!",
+        description: `Carbon impact: ${data.carbonEstimate}kg CO₂`,
+      });
+
+      // Optional: call updateUserStats if needed
+      // updateUserStats(parseFloat(data.carbonEstimate));
+    }
+  } catch (err) {
+    toast({
+      title: "API error",
+      description: "Something went wrong while scanning.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+    setScanLock(false)
 
     try {
       const res = await fetch("/barcode-data.json")
@@ -92,7 +192,9 @@ export default function ScanPage() {
     } finally {
       setIsLoading(false)
     }
+
   }
+};
 
   const getSustainabilityColor = (score: string) => {
     switch (score) {
@@ -146,7 +248,9 @@ export default function ScanPage() {
                   placeholder="Enter barcode (try: 123456789012, 987654321098, 456789123456)"
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleScan()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !scanLock) handleScan()
+                  }}
                 />
                 <Button onClick={() => setIsScanning(true)} variant="outline">
                   <Camera className="h-4 w-4" />
@@ -259,9 +363,16 @@ export default function ScanPage() {
         {isScanning && (
           <BarcodeScanner
             onScan={(scannedBarcode) => {
+
+              if (!scanLock) {
+                setBarcode(scannedBarcode)
+                setIsScanning(false)
+                handleScan()
+              }
               setBarcode(scannedBarcode)
               setIsScanning(false)
               handleScan(scannedBarcode)
+
             }}
             onClose={() => setIsScanning(false)}
           />

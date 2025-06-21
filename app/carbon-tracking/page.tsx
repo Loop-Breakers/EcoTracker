@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/components/auth-provider"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,72 +9,109 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, TrendingDown, Target, Award, BarChart3, Minus, CheckCircle, AlertTriangle } from "lucide-react"
 
-// Mock data for carbon tracking
-const dailyEntries = [
-  { date: "2024-06-01", carbon: 2.1, items: ["Organic Milk", "Bananas"] },
-  { date: "2024-06-02", carbon: 4.5, items: ["Chicken Breast", "Rice"] },
-  { date: "2024-06-03", carbon: 1.8, items: ["Vegetables", "Bread"] },
-  { date: "2024-06-04", carbon: 3.2, items: ["Cheese", "Pasta"] },
-  { date: "2024-06-05", carbon: 5.1, items: ["Beef", "Potatoes"] },
-  { date: "2024-06-06", carbon: 2.7, items: ["Fish", "Salad"] },
-  { date: "2024-06-07", carbon: 1.9, items: ["Fruits", "Yogurt"] },
-]
+// const monthlyGoals = [
+//   { month: "January", goal: 50, actual: 52.1, status: "missed" },
+//   { month: "February", goal: 50, actual: 48.7, status: "achieved" },
+//   { month: "March", goal: 45, actual: 45.2, status: "close" },
+//   { month: "April", goal: 45, actual: 42.8, status: "achieved" },
+//   { month: "May", goal: 40, actual: 39.5, status: "achieved" },
+//   { month: "June", goal: 40, actual: 37.2, status: "achieved" },
+// ]
 
-const monthlyGoals = [
-  { month: "January", goal: 50, actual: 52.1, status: "missed" },
-  { month: "February", goal: 50, actual: 48.7, status: "achieved" },
-  { month: "March", goal: 45, actual: 45.2, status: "close" },
-  { month: "April", goal: 45, actual: 42.8, status: "achieved" },
-  { month: "May", goal: 40, actual: 39.5, status: "achieved" },
-  { month: "June", goal: 40, actual: 37.2, status: "achieved" },
-]
+// const carbonCategories = [
+//   { name: "Transportation", current: 15.2, target: 12.0, color: "bg-blue-500" },
+//   { name: "Food", current: 18.5, target: 20.0, color: "bg-green-500" },
+//   { name: "Energy", current: 8.3, target: 10.0, color: "bg-yellow-500" },
+//   { name: "Shopping", current: 6.7, target: 8.0, color: "bg-purple-500" },
+// ]
 
-const carbonCategories = [
-  { name: "Transportation", current: 15.2, target: 12.0, color: "bg-blue-500" },
-  { name: "Food", current: 18.5, target: 20.0, color: "bg-green-500" },
-  { name: "Energy", current: 8.3, target: 10.0, color: "bg-yellow-500" },
-  { name: "Shopping", current: 6.7, target: 8.0, color: "bg-purple-500" },
-]
-
-const achievements = [
-  { title: "First Week Complete", description: "Tracked carbon for 7 days", earned: true, icon: "🎯" },
-  { title: "Goal Achiever", description: "Met monthly goal 3 times", earned: true, icon: "🏆" },
-  { title: "Eco Warrior", description: "Reduced carbon by 20%", earned: true, icon: "🌱" },
-  { title: "Consistency King", description: "30 days of tracking", earned: false, icon: "👑" },
-  { title: "Carbon Neutral", description: "Offset all emissions", earned: false, icon: "⚖️" },
-]
+// const achievements = [
+//   { title: "First Week Complete", description: "Tracked carbon for 7 days", earned: true, icon: "🎯" },
+//   { title: "Goal Achiever", description: "Met monthly goal 3 times", earned: true, icon: "🏆" },
+//   { title: "Eco Warrior", description: "Reduced carbon by 20%", earned: true, icon: "🌱" },
+//   { title: "Consistency King", description: "30 days of tracking", earned: false, icon: "👑" },
+//   { title: "Carbon Neutral", description: "Offset all emissions", earned: false, icon: "⚖️" },
+// ]
 
 export default function CarbonTrackingPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("week")
-  const currentMonthCarbon = dailyEntries.reduce((sum, entry) => sum + entry.carbon, 0)
+  const [dailyEntries, setDailyEntries] = useState<any[]>([])
+  const { user } = useAuth()
+
+  useEffect(() => {
+    const fetchUserScans = async () => {
+      if (!user?.email) return
+
+      const res = await fetch(`/api/user/score?email=${user.email}`)
+      const data = await res.json()
+
+      const uniqueEntries = Array.from(
+        new Map(
+          data.scans.map((entry: any) => [
+            `${new Date(entry.date).toDateString()}_${entry.productName}`,
+            entry,
+          ])
+        ).values()
+      )
+
+      setDailyEntries(uniqueEntries)
+    }
+
+    fetchUserScans()
+  }, [user?.email])
+
+  const uniqueScanDates = Array.from(
+    new Set(dailyEntries.map((entry) => new Date(entry.date).toDateString()))
+  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+
+  const getStreakCount = () => {
+    let streak = 0
+    let today = new Date()
+
+    for (let dateStr of uniqueScanDates) {
+      const entryDate = new Date(dateStr)
+      if (entryDate.toDateString() === today.toDateString()) {
+        streak++
+        today.setDate(today.getDate() - 1)
+      } else {
+        break // Streak broken
+      }
+    }
+
+    return streak
+  }
+
+  const streakCount = getStreakCount()
+
+  const currentMonthCarbon = dailyEntries.reduce((sum, entry) => sum + entry.carbonEstimate, 0)
   const monthlyGoal = 40
   const progressPercentage = (currentMonthCarbon / monthlyGoal) * 100
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "achieved":
-        return "text-green-400"
-      case "close":
-        return "text-yellow-400"
-      case "missed":
-        return "text-red-400"
-      default:
-        return "text-gray-400"
-    }
-  }
+  // const getStatusColor = (status: string) => {
+  //   switch (status) {
+  //     case "achieved":
+  //       return "text-green-400"
+  //     case "close":
+  //       return "text-yellow-400"
+  //     case "missed":
+  //       return "text-red-400"
+  //     default:
+  //       return "text-gray-400"
+  //   }
+  // }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "achieved":
-        return <CheckCircle className="h-4 w-4 text-green-400" />
-      case "close":
-        return <AlertTriangle className="h-4 w-4 text-yellow-400" />
-      case "missed":
-        return <Minus className="h-4 w-4 text-red-400" />
-      default:
-        return <AlertTriangle className="h-4 w-4 text-gray-400" />
-    }
-  }
+  // const getStatusIcon = (status: string) => {
+  //   switch (status) {
+  //     case "achieved":
+  //       return <CheckCircle className="h-4 w-4 text-green-400" />
+  //     case "close":
+  //       return <AlertTriangle className="h-4 w-4 text-yellow-400" />
+  //     case "missed":
+  //       return <Minus className="h-4 w-4 text-red-400" />
+  //     default:
+  //       return <AlertTriangle className="h-4 w-4 text-gray-400" />
+  //   }
+  // }
 
   return (
     <DashboardLayout>
@@ -169,7 +207,7 @@ export default function CarbonTrackingPage() {
             <TabsTrigger value="daily" className="data-[state=active]:bg-green-600">
               Daily
             </TabsTrigger>
-            <TabsTrigger value="goals" className="data-[state=active]:bg-green-600">
+            {/* <TabsTrigger value="goals" className="data-[state=active]:bg-green-600">
               Goals
             </TabsTrigger>
             <TabsTrigger value="categories" className="data-[state=active]:bg-green-600">
@@ -177,7 +215,7 @@ export default function CarbonTrackingPage() {
             </TabsTrigger>
             <TabsTrigger value="achievements" className="data-[state=active]:bg-green-600">
               Achievements
-            </TabsTrigger>
+            </TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="daily" className="space-y-6">
@@ -194,10 +232,7 @@ export default function CarbonTrackingPage() {
               <CardContent>
                 <div className="space-y-4">
                   {dailyEntries.map((entry) => (
-                    <div
-                      key={entry.date}
-                      className="flex items-center justify-between p-4 rounded-lg bg-gray-800/50 border border-gray-700"
-                    >
+                    <div key={entry.date} className="...">
                       <div>
                         <div className="font-medium text-white">
                           {new Date(entry.date).toLocaleDateString("en-US", {
@@ -206,10 +241,10 @@ export default function CarbonTrackingPage() {
                             day: "numeric",
                           })}
                         </div>
-                        <div className="text-sm text-gray-400">{entry.items.join(", ")}</div>
+                        <div className="text-sm text-gray-400">{entry.productName}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-white">{entry.carbon} kg</div>
+                        <div className="text-lg font-bold text-white">{entry.carbonEstimate} kg</div>
                         <div className="text-xs text-gray-500">CO₂</div>
                       </div>
                     </div>
@@ -219,7 +254,7 @@ export default function CarbonTrackingPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="goals" className="space-y-6">
+          {/* <TabsContent value="goals" className="space-y-6">
             <Card className="dark-card border-gray-700">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
@@ -344,7 +379,7 @@ export default function CarbonTrackingPage() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
       </div>
     </DashboardLayout>

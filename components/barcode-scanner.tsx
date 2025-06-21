@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Camera, X, Flashlight, RotateCcw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/components/auth-provider"
 import { BrowserMultiFormatReader } from "@zxing/browser"
 
 interface BarcodeScannerProps {
@@ -18,6 +19,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const videoRef = useRef<HTMLVideoElement>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   useEffect(() => {
     startCamera()
@@ -90,6 +92,49 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const switchCamera = () => {
     setFacingMode(facingMode === "user" ? "environment" : "user")
   }
+
+
+  // INSIDE barcode-scanner.tsx
+
+  const handleScan = async (barcode: string) => {
+    try {
+      const scanRes = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barcode }),
+      });
+
+      const data = await scanRes.json();
+      if (data.error) {
+        toast({ title: "Product not found", variant: "destructive" });
+        return;
+      }
+
+      // Send to user score API
+      const userScoreRes = await fetch("/api/user/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user?.email, // later replace with real user
+          productName: data.productName,
+          carbonEstimate: data.carbonEstimate,
+        }),
+      });
+
+      const scoreData = await userScoreRes.json();
+      toast({
+        title: `Carbon Estimate: ${data.carbonEstimate} kg`,
+        description: `Your total score: ${scoreData.newScore} kg`,
+      });
+    } catch (err) {
+      toast({
+        title: "API Error",
+        description: "Something went wrong while fetching data.",
+        variant: "destructive",
+      });
+    }
+  };
+
 
   const codeReader = new BrowserMultiFormatReader()
 
