@@ -25,7 +25,7 @@ export default function Dashboard() {
     return null
   }
 
-  const monthlyGoal = 50 // kg CO₂
+  const monthlyGoal = 10 // kg CO₂
   const progressPercentage = (user.monthlyCarbon / monthlyGoal) * 100
 
   return (
@@ -45,7 +45,7 @@ export default function Dashboard() {
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-{/*               <div className="text-2xl font-bold text-white">{user.monthlyCarbon.toFixed(1)} kg</div> */}
+              {/* <div className="text-2xl font-bold text-white">{user.monthlyCarbon.toFixed(1)} kg</div> */}
               <p className="text-xs text-gray-500">{progressPercentage < 100 ? "Below" : "Above"} monthly goal</p>
             </CardContent>
           </Card>
@@ -56,7 +56,7 @@ export default function Dashboard() {
               <Scan className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">{user.totalScanned}</div>
+             <div className="text-2xl font-bold text-white">{user.totalScanned}</div>
               <p className="text-xs text-gray-500">This month</p>
             </CardContent>
           </Card>
@@ -96,7 +96,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Progress</span>
-{/*                 <span>
+                {/* <span>
                   {user.monthlyCarbon.toFixed(1)}kg / {monthlyGoal}kg
                 </span> */}
               </div>

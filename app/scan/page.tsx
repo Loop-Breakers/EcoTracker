@@ -13,53 +13,31 @@ import { Scan, Search, Leaf, AlertTriangle, CheckCircle, Camera } from "lucide-r
 import { useToast } from "@/hooks/use-toast"
 import BarcodeScanner from "@/components/barcode-scanner"
 
-// Mock product database
-const mockProducts = {
-  "123456789012": {
-    name: "Organic Bananas",
-    brand: "Fresh & Green",
-    category: "Fruits",
-    carbonFootprint: 0.7,
-    sustainabilityScore: "A",
-    description: "Organic bananas from sustainable farms",
-    image: "/placeholder.svg?height=200&width=200",
-    certifications: ["Organic", "Fair Trade"],
-    packaging: "Minimal plastic",
-    transportDistance: "1,200 km",
-  },
-  "987654321098": {
-    name: "Beef Burger Patties",
-    brand: "MeatCo",
-    category: "Meat",
-    carbonFootprint: 15.2,
-    sustainabilityScore: "D",
-    description: "Frozen beef burger patties",
-    image: "/placeholder.svg?height=200&width=200",
-    certifications: [],
-    packaging: "Plastic tray with film",
-    transportDistance: "800 km",
-  },
-  "456789123456": {
-    name: "Almond Milk",
-    brand: "Plant Pure",
-    category: "Dairy Alternative",
-    carbonFootprint: 1.1,
-    sustainabilityScore: "B+",
-    description: "Unsweetened almond milk",
-    image: "/placeholder.svg?height=200&width=200",
-    certifications: ["Organic"],
-    packaging: "Recyclable carton",
-    transportDistance: "600 km",
-  },
+
+interface ProductData {
+  barcode: string
+  product: string
+  co2_emission: number
+  image?: string
+  description?: string
+  sustainabilityScore?: string
+  brand?: string
+  category?: string
+  transportDistance?: string
+  packaging?: string
+  certifications?: string[]
 }
+
 
 export default function ScanPage() {
   const [barcode, setBarcode] = useState("")
-  const [product, setProduct] = useState<any>(null)
+  const [product, setProduct] = useState<ProductData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
+
+  const [scanLock, setScanLock] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
-  const { updateUserStats } = useAuth()
+  const { updateUserStats, user } = useAuth()
   const { toast } = useToast()
 
   const startCamera = async () => {
@@ -86,40 +64,116 @@ export default function ScanPage() {
     setIsScanning(false)
   }
 
-  const handleScan = async () => {
-    if (!barcode.trim()) {
-      toast({
-        title: "Please enter a barcode",
-        description: "Enter a valid barcode to scan the product.",
-        variant: "destructive",
-      })
-      return
+  const handleScan = async (scanned?: string) => {
+  if (scanLock) return;
+  setScanLock(true);
+
+  const actualBarcode = (scanned || barcode).trim();
+
+  if (!actualBarcode) {
+    toast({
+      title: "Please enter a barcode",
+      description: "Enter a valid barcode to scan the product.",
+      variant: "destructive",
+    });
+    setScanLock(false);
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    // Step 1: Try hitting /api/scan
+    const res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ barcode: actualBarcode }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error || !data.productName) {
+      throw new Error("Product not found in API");
     }
 
-    setIsLoading(true)
+    // Step 2: If API worked, use API result
+    setProduct({
+      barcode: actualBarcode,
+      product: data.productName,
+      brand: data.brand || "Unknown",
+      category: data.category || "Unknown",
+      co2_emission: parseFloat(data.carbonEstimate),
+      sustainabilityScore: "B",
+      description: "Data fetched from OpenFoodFacts",
+      image: "/placeholder.svg",
+      certifications: [],
+      packaging: "Unknown",
+      transportDistance: "Unknown",
+    });
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const foundProduct = mockProducts[barcode as keyof typeof mockProducts]
+    await fetch("/api/user/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: user?.email,
+        productName: data.productName,
+        carbonEstimate: data.carbonEstimate,
+      }),
+    });
 
-      if (foundProduct) {
-        setProduct(foundProduct)
-        updateUserStats(foundProduct.carbonFootprint)
+    toast({
+      title: "Product found!",
+      description: `Carbon impact: ${data.carbonEstimate}kg CO₂`,
+    });
+
+    updateUserStats?.(parseFloat(data.carbonEstimate));
+  } catch (err) {
+    console.warn("API failed, trying fallback JSON...");
+
+    try {
+      // Step 3: Fallback to local barcode-data.json
+      const res = await fetch("/barcode-data.json");
+      const data: ProductData[] = await res.json();
+      const matched = data.find((item) => item.barcode === actualBarcode);
+
+      if (matched) {
+        setProduct({
+          ...matched,
+          image: matched.image || "/placeholder.svg",
+          sustainabilityScore: matched.sustainabilityScore || "Unknown",
+          brand: matched.brand || "N/A",
+          category: matched.category || "N/A",
+          transportDistance: matched.transportDistance || "N/A",
+          packaging: matched.packaging || "N/A",
+          certifications: matched.certifications || [],
+          description: matched.description || "No description available.",
+        });
+
+        updateUserStats?.(matched.co2_emission);
+
         toast({
-          title: "Product found!",
-          description: `Added ${foundProduct.carbonFootprint}kg CO₂ to your tracking.`,
-        })
+          title: matched.product,
+          description: `CO₂ Emission: ${matched.co2_emission} kg added to your tracking.`,
+        });
       } else {
-        toast({
-          title: "Product not found",
-          description: "This barcode is not in our database yet.",
-          variant: "destructive",
-        })
-        setProduct(null)
+        throw new Error("Barcode not found in fallback JSON");
       }
-      setIsLoading(false)
-    }, 1000)
+    } catch (err) {
+      console.error("Fallback failed:", err);
+      toast({
+        title: "Error",
+        description: "Could not find product in API or local data.",
+        variant: "destructive",
+      });
+
+      setProduct(null);
+    }
+  } finally {
+    setIsLoading(false);
+    setScanLock(false);
   }
+};
+
 
   const getSustainabilityColor = (score: string) => {
     switch (score) {
@@ -154,7 +208,6 @@ export default function ScanPage() {
           </p>
         </div>
 
-        {/* Scanner Interface */}
         <Card className="dark-card border-gray-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
@@ -174,12 +227,14 @@ export default function ScanPage() {
                   placeholder="Enter barcode (try: 123456789012, 987654321098, 456789123456)"
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleScan()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !scanLock) handleScan()
+                  }}
                 />
                 <Button onClick={() => setIsScanning(true)} variant="outline">
                   <Camera className="h-4 w-4" />
                 </Button>
-                <Button onClick={handleScan} disabled={isLoading}>
+                <Button onClick={() => handleScan()} disabled={isLoading}>
                   {isLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : (
@@ -202,13 +257,12 @@ export default function ScanPage() {
           </CardContent>
         </Card>
 
-        {/* Product Results */}
         {product && (
           <Card className="dark-card border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
-                <span>{product.name}</span>
-                <Badge className={`${getSustainabilityColor(product.sustainabilityScore)} border`}>
+                <span>{product.product}</span>
+                <Badge className={`${getSustainabilityColor(product.sustainabilityScore!)} border`}>
                   Score: {product.sustainabilityScore}
                 </Badge>
               </CardTitle>
@@ -218,26 +272,24 @@ export default function ScanPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Product Image */}
                 <div>
-                  <img
-                    src={product.image || "/placeholder.svg"}
-                    alt={product.name}
+                  {/* <img
+                    // src={product.image}
+                    alt={product.product}
                     className="w-full h-48 object-cover rounded-lg bg-gray-100"
-                  />
+                  /> */}
                 </div>
 
-                {/* Carbon Footprint */}
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold mb-2">Carbon Footprint</h3>
                     <div className="flex items-center gap-2">
                       {(() => {
-                        const impact = getCarbonImpact(product.carbonFootprint)
+                        const impact = getCarbonImpact(product.co2_emission)
                         return (
                           <>
                             <impact.icon className={`h-5 w-5 ${impact.color}`} />
-                            <span className="text-2xl font-bold">{product.carbonFootprint} kg CO₂</span>
+                            <span className="text-2xl font-bold">{product.co2_emission} kg CO₂</span>
                             <Badge variant="outline" className={impact.color}>
                               {impact.level} Impact
                             </Badge>
@@ -249,10 +301,10 @@ export default function ScanPage() {
 
                   <Separator />
 
-                  <div>
+                  {/* <div>
                     <h4 className="font-medium mb-2 text-gray-300">Sustainability Details</h4>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between"> 
                         <span className="text-gray-400">Transport Distance:</span>
                         <span className="text-gray-300">{product.transportDistance}</span>
                       </div>
@@ -260,10 +312,10 @@ export default function ScanPage() {
                         <span className="text-gray-400">Packaging:</span>
                         <span className="text-gray-300">{product.packaging}</span>
                       </div>
-                    </div>
-                  </div>
+                     </div>
+                  </div> */}
 
-                  {product.certifications.length > 0 && (
+                  {product.certifications && product.certifications.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-2 text-gray-300">Certifications</h4>
                       <div className="flex flex-wrap gap-2">
@@ -286,12 +338,20 @@ export default function ScanPage() {
             </CardContent>
           </Card>
         )}
+
         {isScanning && (
           <BarcodeScanner
             onScan={(scannedBarcode) => {
+
+              if (!scanLock) {
+                setBarcode(scannedBarcode)
+                setIsScanning(false)
+                handleScan()
+              }
               setBarcode(scannedBarcode)
               setIsScanning(false)
-              handleScan()
+              handleScan(scannedBarcode)
+
             }}
             onClose={() => setIsScanning(false)}
           />
@@ -299,4 +359,5 @@ export default function ScanPage() {
       </div>
     </DashboardLayout>
   )
-}
+  }
+

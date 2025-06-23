@@ -8,18 +8,18 @@ import { Trophy, Medal, Award, TrendingDown } from "lucide-react"
 
 // Mock leaderboard data
 const leaderboardData = [
-  { id: "1", name: "Emma Green", monthlyCarbon: 12.3, rank: 1, change: "up" },
-  { id: "2", name: "Alex Eco", monthlyCarbon: 15.7, rank: 2, change: "same" },
-  { id: "3", name: "Sarah Plant", monthlyCarbon: 18.2, rank: 3, change: "down" },
-  { id: "4", name: "Mike Sustain", monthlyCarbon: 22.1, rank: 4, change: "up" },
-  { id: "5", name: "Lisa Earth", monthlyCarbon: 25.4, rank: 5, change: "up" },
-  { id: "6", name: "Tom Nature", monthlyCarbon: 28.9, rank: 6, change: "down" },
-  { id: "7", name: "Anna Leaf", monthlyCarbon: 31.2, rank: 7, change: "same" },
-  { id: "8", name: "David Clean", monthlyCarbon: 34.5, rank: 8, change: "up" },
-  { id: "9", name: "Sophie Pure", monthlyCarbon: 37.8, rank: 9, change: "down" },
-  { id: "10", name: "Ryan Fresh", monthlyCarbon: 41.1, rank: 10, change: "up" },
-  { id: "11", name: "Maya Organic", monthlyCarbon: 43.7, rank: 11, change: "same" },
-  { id: "12", name: "You", monthlyCarbon: 45.2, rank: 12, change: "up", isCurrentUser: true },
+  { id: "1", name: "You", monthlyCarbon: 4.09, rank: 1, change: "up" },
+  { id: "2", name: "Madhurima Khan", monthlyCarbon: 15.7, rank: 2, change: "same" },
+  { id: "3", name: "Shatakshi Saha", monthlyCarbon: 18.2, rank: 3, change: "down" },
+  { id: "4", name: "Ananya Chatterjee", monthlyCarbon: 22.1, rank: 4, change: "up" },
+  { id: "5", name: "Maryada Tudu", monthlyCarbon: 25.4, rank: 5, change: "up" },
+  { id: "6", name: "Ashmita Sadhu", monthlyCarbon: 28.9, rank: 6, change: "down" },
+  { id: "7", name: "Ayush tudu", monthlyCarbon: 31.2, rank: 7, change: "same" },
+  { id: "8", name: "sarnavo saha Sardar", monthlyCarbon: 34.5, rank: 8, change: "up" },
+  { id: "9", name: "Ayush Mondal", monthlyCarbon: 37.8, rank: 9, change: "down" },
+  { id: "10", name: "Sayan Chatterjee", monthlyCarbon: 41.1, rank: 10, change: "up" },
+  { id: "11", name: "Susmita Masat", monthlyCarbon: 43.7, rank: 11, change: "same" },
+  { id: "12", name: "Sayan Das", monthlyCarbon: 45.2, rank: 12, change: "up", isCurrentUser: true },
 ]
 
 export default function LeaderboardPage() {
@@ -97,7 +97,7 @@ export default function LeaderboardPage() {
                 <div
                   key={user.id}
                   className={`flex items-center justify-between p-4 rounded-lg border ${
-                    user.isCurrentUser ? "bg-green-900/30 border-green-700" : "bg-gray-800/50 border-gray-700"
+                    user.isCurrentUser ? "bg-900/30 border-700" : "bg-gray-800/50 border-gray-700"
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -113,11 +113,11 @@ export default function LeaderboardPage() {
                     <div>
                       <div className="font-medium text-white">
                         {user.name}
-                        {user.isCurrentUser && (
+                        {/* {user.isCurrentUser && (
                           <Badge variant="secondary" className="ml-2 bg-green-900/50 text-green-400 border-green-700">
                             You
                           </Badge>
-                        )}
+                        )} */}
                       </div>
                       <div className="text-sm text-gray-400">{user.monthlyCarbon} kg CO₂ this month</div>
                     </div>
@@ -141,17 +141,17 @@ export default function LeaderboardPage() {
               <CardTitle className="text-sm font-medium text-gray-300">Your Rank</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">#12</div>
+              <div className="text-2xl font-bold text-white">#1</div>
               <p className="text-xs text-gray-500">Out of 1,247 users</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Top 10%</CardTitle>
+              <CardTitle className="text-sm font-medium">Top 1%</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">125</div>
+              <div className="text-2xl font-bold">12</div>
               <p className="text-xs text-muted-foreground">Users to beat</p>
             </CardContent>
           </Card>

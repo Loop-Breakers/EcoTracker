@@ -67,9 +67,9 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/demo">
-              <Button size="lg" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
+              {/* <Button size="lg" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
                 View Demo
-              </Button>
+              </Button> */}
             </Link>
           </div>
         </div>
